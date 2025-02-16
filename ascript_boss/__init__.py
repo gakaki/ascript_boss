@@ -1,56 +1,6 @@
 from .util import *
 from dataclasses import dataclass
 
-id_app          = "com.hpbr.bosszhipin:id"
-id_ui_container = "cl_card_container"
-id_ui_card      = "view_job_card"
-def find_node(node,id_name):
-    selector = f"{id_app}/{id_name}"
-    subNode = None
-    if not node:
-        subNode = Selector(1|2).id(selector).visible(True).find()
-    else:
-        subNode = node.find( Selector(1|2).id(selector).visible(True))
-    
-    if not subNode:
-        print(f"没有找到任何控件:{selector}")
-    else:
-        print(f"{subNode.id} --{subNode.getInnerTexts()} -- 子节点数量:{len(subNode.child())}  -- {subNode.rect}")
-    return subNode
-
-
-def find_sub_node_text(self,id_name):
-    node = find_node(self,id_name)
-    if node:
-        return node.getInnerText()
-    else:
-        return ""
-setattr(Node, 'find_sub_node_text', find_sub_node_text)
-
-def find_all_sub_node_id_with_text(self):
-    result = {}
-    # 确保 self.child() 返回一个可迭代对象
-    children = self.child() or []
-    for sub_node in children:
-        node_id = getattr(sub_node, 'id', None)
-        node_text = sub_node.getInnerText() if hasattr(sub_node, 'getInnerText') else ""
-        # 仅当节点id存在且文本不为空时加入结果
-        # if node_id is not None and node_text:
-        result[node_id] = node_text
-        print(f"Node ID: {node_id}, Text: {node_text}")
-        # 递归调用获取子节点的子节点
-        if hasattr(sub_node, 'find_all_sub_node_id_with_text'):
-            sub_result = sub_node.find_all_sub_node_id_with_text() or {}
-            result.update(sub_result)
-    # 过滤最终结果中没有文本的节点
-    filtered_result = {k: v for k, v in result.items() if v}
-    return filtered_result
-
-setattr(Node, 'find_all_sub_node_id_with_text', find_all_sub_node_id_with_text)
-
-
-
-
 @dataclass
 class Job:
     title: str = ""         # 算法工程师
@@ -66,16 +16,25 @@ class Job:
     activity:str = ""
     city_str: str = ""
 
+# s = Selector(1|2).id("com.hpbr.bosszhipin:id/tv_company_name").visible(True).find().getInnerText()
+# print(s)
+
+id_ui_card      = "boss_job_card_view"
 node = find_node(None,id_ui_card)
 if node:
     # print(node.find_all_sub_node_id_with_text())
 
     job = Job()
     job.title           = node.find_sub_node_text("cl_position")
+    # 急聘
     #todo:需要使用yolo查询 猎头这几个关键词
-    job.company_name    = node.find_sub_node_text("ll_company")
-    job.company_state   = node.find_sub_node_text("tv_stage")
-    job.human_count     = node.find_sub_node_text("tv_scale")
+    job.company_name    = node.find_sub_node_text("tv_company_name")
+
+    processed_texts = process_special_yolo_texts(job.title)
+    print(processed_texts)
+    
+    # job.company_state   = node.find_sub_node_text("tv_stage")
+    # job.human_count     = node.find_sub_node_text("tv_scale")
     # job.price_start     = node.find_sub_node_text("tv_salary")
     # job.price_end       = node.find_sub_node_text("tv_salary")
     # job.tags_str        = node.find_sub_node_text("ll_tag")
