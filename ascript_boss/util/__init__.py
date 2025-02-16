@@ -6,6 +6,8 @@ from ascript.android import action
 from ascript.android import screen
 from airscript.intent import Intent
 
+import re
+from dataclasses import dataclass
 def getInnerTexts(self):
     result = []
     children = self.child() or []  # 确保 children 为可迭代对象
@@ -49,7 +51,10 @@ def find_node(node, id_name):
     if not node:
         subNode = Selector(1).id(selector).visible(True).find()
     else:
-        subNode = node.find(Selector(1).id(selector).visible(True))
+        try:
+            subNode = node.find(Selector(1).id(selector).visible(True))
+        except Exception as e:
+            print(f"没有找到任何控件:{selector}")
     if not subNode:
         print(f"没有找到任何控件:{selector}")
     else:
@@ -57,6 +62,7 @@ def find_node(node, id_name):
         # 打印时显示 innerText 列表
         print(f"{subNode.id} --{subNode.getInnerText()} -- 子节点数量:{len(children)}  -- {subNode.rect}")
     return subNode
+setattr(Node, 'find_node', find_node)
 
 def find_sub_node_text(self, id_name):
     node = find_node(self, id_name)
@@ -121,3 +127,69 @@ def process_special_yolo_texts(text_list):
         if text and text not in unique:
             unique.append(text)
     return unique
+
+
+@dataclass
+class Salary:
+    price_start: float     # 月薪下限，单位：元
+    price_end: float       # 月薪上限，单位：元
+    months: int            # 发放薪水的月数
+    annual_min: float      # 年薪最低总额（price_start * months）
+    annual_max: float      # 年薪最高总额（price_end * months）
+    annual_max_wan: float  # 年薪最高总额，以万元表示（annual_max/10000）
+
+def parse_salary(salary_str: str) -> Salary:
+    """
+    解析薪资字符串，支持以下格式：
+    - "25-40K·13薪"
+    - "12000-17000元/月"
+    """
+    if isinstance(salary_str, list):
+        salary_str = "".join(salary_str)
+
+    # 分割薪资范围和发薪月数部分
+    parts = salary_str.split("·")
+    range_part = parts[0]
+    month_part = parts[1] if len(parts) > 1 else "12薪"
+    
+    # 尝试匹配两种格式：K结尾 或 元/月结尾
+    k_pattern = r"(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)[Kk]"
+    yuan_pattern = r"(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)元/月"
+    
+    m_k = re.search(k_pattern, range_part)
+    m_yuan = re.search(yuan_pattern, range_part)
+    
+    if m_k:
+        # K单位，需要乘以1000
+        price_start = float(m_k.group(1)) * 1000
+        price_end = float(m_k.group(2)) * 1000
+    elif m_yuan:
+        # 元单位，直接使用数值
+        price_start = float(m_yuan.group(1))
+        price_end = float(m_yuan.group(2))
+    else:
+        # 尝试直接匹配数字
+        number_pattern = r"(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)"
+        m_number = re.search(number_pattern, range_part)
+        if m_number:
+            price_start = float(m_number.group(1))
+            price_end = float(m_number.group(2))
+        else:
+            raise ValueError(f"无法解析薪资范围: {range_part}")
+    
+    # 解析发薪月数
+    m2 = re.search(r"(\d+)", month_part)
+    months = int(m2.group(1)) if m2 else 12
+    
+    annual_min = price_start * months
+    annual_max = price_end * months
+    annual_max_wan = annual_max / 10000
+    
+    return Salary(
+        price_start=price_start,
+        price_end=price_end,
+        months=months,
+        annual_min=annual_min,
+        annual_max=annual_max,
+        annual_max_wan=annual_max_wan
+    )
